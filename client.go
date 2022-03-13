@@ -4,19 +4,28 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 )
 
-var BLOG_API_URL = os.Getenv("BLOG_API_URL")
+func APIPath(components ...string) (string, error) {
+  baseURL, err := url.Parse(os.Getenv("BLOG_API_URL"))
+  if err != nil {
+    return "", err
+  }
 
-func APIPath(components ...string) string {
-  return path.Join(append([]string{BLOG_API_URL}, components...)...)
+  p := path.Join(components...)
+
+  return baseURL.ResolveReference(&url.URL{ Path: p }).String(), nil 
 }
 
 func PostJson(path string, data interface{}) (*http.Response, error) {
   r, w := io.Pipe()
-  go json.NewEncoder(w).Encode(data)
+  go func() {
+    json.NewEncoder(w).Encode(data)
+    w.Close()
+  }()
 
   return http.Post(path, "application/json", r)
 }
