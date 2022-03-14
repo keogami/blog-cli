@@ -9,6 +9,12 @@ import (
 )
 
 func Post(c *cli.Context) error {
+  bp, err := LoadBlogPost(".blogpost.json")
+  if err == nil {
+    return cli.Exit(fmt.Errorf("Entry was already posted at /%s. Did you mean `put`?", bp.Meta.Slug), 9)
+  }
+
+
   params, err := NewCreateParams()
   if err != nil {
     return cli.Exit(fmt.Errorf("Couldn't load post parameters: %w", err), 2)
@@ -32,7 +38,6 @@ func Post(c *cli.Context) error {
     })
   }
 
-  var bp BlogPost
   err = json.NewDecoder(res.Body).Decode(&bp)
   if err != nil {
     return cli.Exit(fmt.Errorf("Couldn't parse the Blog Post returned by the server: %w", err), 8)
