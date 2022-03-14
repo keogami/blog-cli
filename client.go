@@ -21,11 +21,24 @@ func APIPath(components ...string) (string, error) {
 }
 
 func PostJson(path string, data interface{}) (*http.Response, error) {
+  return DoJson(http.MethodPost, path, data)
+}
+
+func PutJson(path string, data interface{}) (*http.Response, error) {
+  return DoJson(http.MethodPut, path, data)
+}
+
+func DoJson(method string, path string, data interface{}) (*http.Response, error) {
   r, w := io.Pipe()
   go func() {
     json.NewEncoder(w).Encode(data)
     w.Close()
   }()
 
-  return http.Post(path, "application/json", r)
+  req, err := http.NewRequest(method, path, r)
+  if err != nil {
+    return nil, err
+  }
+
+  return (&http.Client{}).Do(req)
 }
