@@ -1,9 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"io"
-	"strings"
+	"net/http"
 
 	"github.com/urfave/cli/v2"
 )
@@ -25,12 +25,38 @@ func Post(c *cli.Context) error {
   }
   defer res.Body.Close()
 
-  status := res.StatusCode
-  b := new(strings.Builder)
+  if res.StatusCode != http.StatusCreated {
+    return HandleErrorStatus(res, map[int]string{
+      http.StatusBadRequest: "There's something wrong with this client",
+      http.StatusInternalServerError: "Server Error: %w",
+    })
+  }
 
-  io.Copy(b, res.Body)
+  var bp BlogPost
+  err = json.NewDecoder(res.Body).Decode(&bp)
+  if err != nil {
+    return cli.Exit(fmt.Errorf("Couldn't parse the Blog Post returned by the server: %w", err), 8)
+  }
 
-  fmt.Println(status)
-  fmt.Println(b.String())
+  err = bp.SaveBlogPost(".blogpost.json")
+  if err != nil {
+    return cli.Exit(fmt.Errorf("Couldn't save the response sent by the server: %w", err), 9)
+  }
+
+  fmt.Println("Entry was posted:", "/" + bp.Meta.Slug)
   return nil
+}
+
+func HandleErrorStatus(res *http.Response, message map[int]string) error {
+  errfmt, ok := message[res.StatusCode]
+  if !ok {
+    return cli.Exit(fmt.Errorf("Invalid response code from the server: %d", res.StatusCode), 6)
+  }
+
+  apierr, err := ParseError(res.Body)
+  if err != nil {
+    return cli.Exit(fmt.Errorf("Couldn't parse error returned by the server: %w", err), 5)
+  }
+
+  return cli.Exit(fmt.Errorf(errfmt, apierr), 7)
 }
